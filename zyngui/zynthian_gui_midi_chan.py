@@ -55,8 +55,9 @@ class zynthian_gui_midi_chan(zynthian_gui_selector):
             try:
                 self.midi_chan = self.zyngui.chain_manager.get_next_free_midi_chan(
                     self.midi_chan)
-            except:
-                pass
+            except Exception as e:
+                logging.warning(e)
+                return
         self.index = self.get_midi_chan_index(self.midi_chan)
 
     def fill_list(self):

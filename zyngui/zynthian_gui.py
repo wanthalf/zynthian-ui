@@ -919,6 +919,10 @@ class zynthian_gui:
                         self.modify_chain_status["audio_thru"],
                         zmop_index=zmop_index
                     )
+                    if chain_id is None:
+                        self.show_screen_reset("audio_mixer")
+                        self.show_info("Failed to create chain", 1500)
+                        return
                     processor = self.chain_manager.add_processor(
                         chain_id,
                         self.modify_chain_status["engine"]

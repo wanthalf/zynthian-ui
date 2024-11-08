@@ -196,6 +196,7 @@ class zynthian_chain_manager:
             chain_id = 1
             while chain_id in self.chains:
                 chain_id += 1
+        chain_id = int(chain_id)
 
         # If Main chain ...
         if chain_id == 0:  # main
@@ -208,7 +209,7 @@ class zynthian_chain_manager:
             self.chains[chain_id].midi_thru = midi_thru
             self.chains[chain_id].audio_thru = audio_thru
             self.state_manager.end_busy("add_chain")
-            return self.chains[chain_id]
+            return chain_id
 
         # Create chain instance
         chain = zynthian_chain(chain_id, midi_chan, midi_thru, audio_thru)
@@ -223,7 +224,12 @@ class zynthian_chain_manager:
             chain.set_mixer_chan(mixer_chan)
         # else, if audio_thru enabled, setup a mixer_chan
         elif audio_thru:
-            chain.set_mixer_chan(self.get_next_free_mixer_chan())
+            try:
+                chain.set_mixer_chan(self.get_next_free_mixer_chan())
+            except Exception as e:
+                logging.warning(e)
+                self.state_manager.end_busy("add_chain")
+                return None
 
         # Setup MIDI routing
         if isinstance(midi_chan, int):
@@ -299,7 +305,7 @@ class zynthian_chain_manager:
         else:
             zmop_index = None
 
-        self.add_chain(chain_id, midi_chan=midi_chan, midi_thru=midi_thru, audio_thru=audio_thru,
+        chain_id = self.add_chain(chain_id, midi_chan=midi_chan, midi_thru=midi_thru, audio_thru=audio_thru,
                        mixer_chan=mixer_chan, zmop_index=zmop_index, title=title, fast_refresh=False)
 
         # Set CC route state
@@ -309,6 +315,7 @@ class zynthian_chain_manager:
             for ccnum, ccr in enumerate(chain_state['cc_route']):
                 cc_route_ct[ccnum] = ccr
             lib_zyncore.zmop_set_cc_route(zmop_index, cc_route_ct)
+        return chain_id
 
     def remove_chain(self, chain_id, stop_engines=True, fast_refresh=True):
         """Removes a chain or resets main chain
@@ -826,7 +833,11 @@ class zynthian_chain_manager:
                 chain.fader_pos += 1
             # TODO: Fails to detect MIDI only chains in snapshots
             if chain.mixer_chan is None and processor.type != "MIDI Tool":
-                chain.mixer_chan = self.get_next_free_mixer_chan()
+                try:
+                    chain.mixer_chan = self.get_next_free_mixer_chan()
+                except Exception as e:
+                    logging.warning(e)
+                    return None
             engine = self.start_engine(processor, eng_code, eng_config)
             if engine:
                 chain.rebuild_graph()
@@ -1145,7 +1156,7 @@ class zynthian_chain_manager:
         # TODO: Remove superfluous parameters
         return state
 
-    def set_state(self, state, engine_config):
+    def set_state(self, state, engine_config, merge=False):
         """Create chains from state
 
         state : List of chain states
@@ -1153,19 +1164,20 @@ class zynthian_chain_manager:
         Returns : True on success
         """
 
-        self.state_manager.start_busy(
-            "set_chain_state", None, "loading chains")
+        self.state_manager.start_busy("set_chain_state", None, "loading chains")
 
         # Clean all chains but don't stop unused engines
-        self.remove_all_chains(False)
+        if not merge:
+            self.remove_all_chains(False)
 
-        # Reusing Jalv engine instances raise problems (audio routing & jack names, etc..),
-        # so we stop Jalv engines!
-        self.stop_unused_jalv_engines()  # TODO: Can we factor this out? => Not yet!!
+            # Reusing Jalv engine instances raise problems (audio routing & jack names, etc..),
+            # so we stop Jalv engines!
+            self.stop_unused_jalv_engines()  # TODO: Can we factor this out? => Not yet!!
 
         for chain_id, chain_state in state.items():
-            chain_id = int(chain_id)
-            self.add_chain_from_state(chain_id, chain_state)
+            if merge:
+                chain_id = None
+            chain_id = self.add_chain_from_state(chain_id, chain_state)
             if "slots" in chain_state:
                 for slot_state in chain_state["slots"]:
                     # slot_state is a dict of proc_id:proc_type for procs in this slot
@@ -1182,7 +1194,7 @@ class zynthian_chain_manager:
                             mode = CHAIN_MODE_SERIES
                         self.add_processor(chain_id, eng_code, mode, proc_id=int(
                             proc_id), fast_refresh=False, eng_config=eng_config)
-            if "fader_pos" in chain_state and self.get_slot_count(chain_id, "Audio Effect") > chain_state["fader_pos"]:
+            if "fader_pos" in chain_state and self.get_slot_count(chain_id, "Audio Effect") >= chain_state["fader_pos"]:
                 self.chains[chain_id].fader_pos = chain_state["fader_pos"]
             else:
                 self.chains[chain_id].fader_pos = 0
@@ -1211,8 +1223,7 @@ class zynthian_chain_manager:
         if zctrl is None:
             return
 
-        logging.debug(
-            f"(chan={chan}, midi_cc={midi_cc}, zctrl={zctrl.symbol}, zmip={zmip})")
+        logging.debug(f"(chan={chan}, midi_cc={midi_cc}, zctrl={zctrl.symbol}, zmip={zmip})")
         self.remove_midi_learn(zctrl.processor, zctrl.symbol)
         if zmip is None:
             if zctrl.processor:
@@ -1236,6 +1247,13 @@ class zynthian_chain_manager:
                     self.absolute_midi_cc_binding[key].append(zctrl)
             else:
                 self.absolute_midi_cc_binding[key] = [zctrl]
+
+        # Ensure pedals are always learnt in absolute mode.
+        # TODO: This is not OK, just mitigates issue #1277 until a proper solution is implemented
+        #  => MIDI CC mode should be stored with MIDI learn info in chain manager, not in zctrl!!
+        #  => Anyway, it's not so bad, as handle_pedals also uses a fixed list of CC nums
+        if midi_cc in self.held_zctrls:
+            zctrl.midi_cc_mode_set(0)
 
         # TODO: Handle MD midi learn
             """
