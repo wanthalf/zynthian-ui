@@ -887,8 +887,7 @@ class zynthian_gui_mixer(zynthian_gui_base.zynthian_gui_base):
         """ Redefine set_title
         """
         if title == "" and self.zyngui.state_manager.last_snapshot_fpath:
-            fparts = os.path.splitext(
-                self.zyngui.state_manager.last_snapshot_fpath)
+            fparts = os.path.splitext(self.zyngui.state_manager.last_snapshot_fpath)
             if self.zyngui.screens['snapshot'].bankless_mode:
                 ssname = os.path.basename(fparts[0])
             else:
@@ -1031,6 +1030,7 @@ class zynthian_gui_mixer(zynthian_gui_base.zynthian_gui_base):
 
     def cb_load_zs3(self, zs3_id):
         self.refresh_visible_strips()
+        self.set_title()
 
     # --------------------------------------------------------------------------
     # Mixer Functionality
@@ -1049,8 +1049,7 @@ class zynthian_gui_mixer(zynthian_gui_base.zynthian_gui_base):
             self.mixer_strip_offset = active_index
             refresh = True
         elif active_index >= self.mixer_strip_offset + len(self.visible_mixer_strips) and self.zyngui.chain_manager.active_chain_id != 0:
-            self.mixer_strip_offset = active_index - \
-                len(self.visible_mixer_strips) + 1
+            self.mixer_strip_offset = active_index - len(self.visible_mixer_strips) + 1
             refresh = True
         # TODO: Handle aux
 
@@ -1316,8 +1315,7 @@ class zynthian_gui_mixer(zynthian_gui_base.zynthian_gui_base):
             options["Clean MIDI-learn (ALL)"] = "clean"
 
         self.midi_learn_sticky = self.zynmixer.midi_learn_zctrl
-        self.zyngui.screens['option'].config(
-            title, options, self.midi_learn_menu_cb)
+        self.zyngui.screens['option'].config(title, options, self.midi_learn_menu_cb)
         self.zyngui.show_screen('option')
 
     def midi_learn_menu_cb(self, options, params):

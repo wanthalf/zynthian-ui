@@ -1217,7 +1217,7 @@ class zynthian_state_manager:
                 zs3 = self.sanitize_zs3_from_json(state["zs3"])
                 if not merge:
                     self.zs3 = zs3
-                self.load_zs3(zs3["zs3-0"])
+                self.load_zs3(zs3["zs3-0"], autoconnect=False)
                 try:
                     mute |= self.zs3["zs3-0"]["mixer"]["chan_16"]["mute"]
                 except:
@@ -1385,7 +1385,7 @@ class zynthian_state_manager:
         except:
             tstate["restore"] = False
 
-    def load_zs3(self, zs3_id):
+    def load_zs3(self, zs3_id, autoconnect=True):
         """Restore a ZS3
 
         zs3_id : ID of ZS3 to restore or zs3 dict
@@ -1445,29 +1445,23 @@ class zynthian_state_manager:
 
                 if "midi_chan" in chain_state:
                     if chain.midi_chan is not None and chain.midi_chan != chain_state['midi_chan']:
-                        self.chain_manager.set_midi_chan(
-                            chain_id, chain_state['midi_chan'])
+                        self.chain_manager.set_midi_chan(chain_id, chain_state['midi_chan'])
 
                 if chain.zmop_index is not None:
                     if "note_low" in chain_state:
-                        lib_zyncore.zmop_set_note_low(
-                            chain.zmop_index, chain_state["note_low"])
+                        lib_zyncore.zmop_set_note_low(chain.zmop_index, chain_state["note_low"])
                     else:
                         lib_zyncore.zmop_set_note_low(chain.zmop_index, 0)
                     if "note_high" in chain_state:
-                        lib_zyncore.zmop_set_note_high(
-                            chain.zmop_index, chain_state["note_high"])
+                        lib_zyncore.zmop_set_note_high(chain.zmop_index, chain_state["note_high"])
                     else:
                         lib_zyncore.zmop_set_note_high(chain.zmop_index, 127)
                     if "transpose_octave" in chain_state:
-                        lib_zyncore.zmop_set_transpose_octave(
-                            chain.zmop_index, chain_state["transpose_octave"])
+                        lib_zyncore.zmop_set_transpose_octave(chain.zmop_index, chain_state["transpose_octave"])
                     else:
-                        lib_zyncore.zmop_set_transpose_octave(
-                            chain.zmop_index, 0)
+                        lib_zyncore.zmop_set_transpose_octave(chain.zmop_index, 0)
                     if "transpose_semitone" in chain_state:
-                        lib_zyncore.zmop_set_transpose_semitone(
-                            chain.zmop_index, chain_state["transpose_semitone"])
+                        lib_zyncore.zmop_set_transpose_semitone(chain.zmop_index, chain_state["transpose_semitone"])
                     else:
                         lib_zyncore.zmop_set_transpose_semitone(
                             chain.zmop_index, 0)
@@ -1483,8 +1477,7 @@ class zynthian_state_manager:
                 if "audio_out" in chain_state:
                     for out in chain_state["audio_out"]:
                         try:
-                            chain.audio_out.append(
-                                f"{self.chain_manager.processors[out[0]].jackname}:{out[1]}")
+                            chain.audio_out.append(f"{self.chain_manager.processors[out[0]].jackname}:{out[1]}")
                         except:
                             chain.audio_out.append(out)
 
@@ -1495,8 +1488,7 @@ class zynthian_state_manager:
                     for cc, cfg in chain_state["midi_cc"].items():
                         for proc_id, symbol in cfg:
                             if proc_id in self.chain_manager.processors:
-                                restored_cc_mapping.append(
-                                    (proc_id, int(cc), symbol))
+                                restored_cc_mapping.append((proc_id, int(cc), symbol))
         if mute_pause:
             # Wait for soft mutes to apply before changing settings
             sleep(self.jack_period)
@@ -1506,26 +1498,21 @@ class zynthian_state_manager:
                 try:
                     processor = self.chain_manager.processors[int(proc_id)]
                     if processor.chain_id in restored_chains:
-                        self.set_busy_details(
-                            f"restoring {processor.get_basepath()} state")
+                        self.set_busy_details(f"restoring {processor.get_basepath()} state")
                         processor.set_state(proc_state)
                 except Exception as e:
-                    logging.error(
-                        f"Failed to restore processor {proc_id} state => {e}")
+                    logging.error(f"Failed to restore processor {proc_id} state => {e}")
 
         for cc_map in restored_cc_mapping:
             processor = self.chain_manager.processors[cc_map[0]]
             try:
                 zctrl = processor.controllers_dict[cc_map[2]]
-                self.chain_manager.add_midi_learn(
-                    processor.midi_chan, cc_map[1], zctrl)
+                self.chain_manager.add_midi_learn(processor.midi_chan, cc_map[1], zctrl)
             except:
-                logging.warning(
-                    f"Failed to restore MIDI learning {cc_map[1]} => {cc_map[2]}")
+                logging.warning(f"Failed to restore MIDI learning {cc_map[1]} => {cc_map[2]}")
 
         if "active_chain" in zs3_state:
-            self.chain_manager.set_active_chain_by_id(
-                zs3_state["active_chain"])
+            self.chain_manager.set_active_chain_by_id(zs3_state["active_chain"])
 
         if "mixer" in zs3_state:
             try:
@@ -1542,8 +1529,7 @@ class zynthian_state_manager:
 
         if "global" in zs3_state:
             if "midi_transpose" in zs3_state["global"]:
-                lib_zyncore.set_global_transpose(
-                    int(zs3_state["global"]["midi_transpose"]))
+                lib_zyncore.set_global_transpose(int(zs3_state["global"]["midi_transpose"]))
             if "zctrl_x" in zs3_state["global"]:
                 try:
                     processor = self.chain_manager.processors[zs3_state["global"]["zctrl_x"][0]]
@@ -1559,14 +1545,10 @@ class zynthian_state_manager:
             if "zynaptik" in zs3_state["global"]:
                 try:
                     zynaptik_config = zs3_state["global"]["zynaptik"]
-                    lib_zyncore.zynaptik_cvin_set_volts_octave(
-                        ctypes.c_float(zynaptik_config["cvin_volts_octave"]))
-                    lib_zyncore.zynaptik_cvin_set_note0(
-                        zynaptik_config["cvin_note0"])
-                    lib_zyncore.zynaptik_cvout_set_volts_octave(
-                        ctypes.c_float(zynaptik_config["cvout_volts_octave"]))
-                    lib_zyncore.zynaptik_cvout_set_note0(
-                        zynaptik_config["cvout_note0"])
+                    lib_zyncore.zynaptik_cvin_set_volts_octave(ctypes.c_float(zynaptik_config["cvin_volts_octave"]))
+                    lib_zyncore.zynaptik_cvin_set_note0(zynaptik_config["cvin_note0"])
+                    lib_zyncore.zynaptik_cvout_set_volts_octave(ctypes.c_float(zynaptik_config["cvout_volts_octave"]))
+                    lib_zyncore.zynaptik_cvout_set_note0(zynaptik_config["cvout_note0"])
                 except:
                     pass
 
@@ -1574,6 +1556,10 @@ class zynthian_state_manager:
             self.last_zs3_id = zs3_id
             #self.zs3['zs3-0'] = self.zs3[zs3_id].copy()
         zynsigman.send(zynsigman.S_STATE_MAN, self.SS_LOAD_ZS3, zs3_id=zs3_id)
+
+        if autoconnect:
+            zynautoconnect.request_midi_connect(True)
+            zynautoconnect.request_audio_connect(True)
         return True
 
     def save_zs3(self, zs3_id=None, title=None):
@@ -1892,20 +1878,18 @@ class zynthian_state_manager:
         for idev in range(NUM_MIDI_DEVS_IN):
             if zynautoconnect.devices_in[idev] is None:
                 continue
-
-            routed_chains = []
-            for ch in range(MAX_NUM_ZMOPS):
-                if lib_zyncore.zmop_get_route_from(ch, idev):
-                    routed_chains.append(ch)
-
             try:
                 uid = zynautoconnect.devices_in[idev].aliases[0]
             except:
                 logging.error(f"No aliases for idev {idev} => Skipping!")
                 continue
+            routed_chains = []
+            for ch in range(MAX_NUM_ZMOPS):
+                if lib_zyncore.zmop_get_route_from(ch, idev):
+                    routed_chains.append(ch)
             mcstate[uid] = {
                 "zmip_input_mode": bool(lib_zyncore.zmip_get_flag_active_chain(idev)),
-                "disable_ctrldev": uid in self.ctrldev_manager.disabled_devices,
+                "disable_ctrldev": self.ctrldev_manager.get_disabled_driver(uid),
                 "routed_chains": routed_chains
             }
             # Ctrldev driver state
@@ -1922,8 +1906,7 @@ class zynthian_state_manager:
                         mcstate[uid]["midi_cc"] = {}
                     mcstate[uid]["midi_cc"][chan_cc] = []
                     for zctrl in zctrls:
-                        mcstate[uid]["midi_cc"][chan_cc].append(
-                            [zctrl.processor.id, zctrl.symbol])
+                        mcstate[uid]["midi_cc"][chan_cc].append([zctrl.processor.id, zctrl.symbol])
 
         return mcstate
 
@@ -1935,13 +1918,12 @@ class zynthian_state_manager:
         if mcstate:
             ctrldev_state_drivers = {}
             for uid, state in mcstate.items():
-                zmip = zynautoconnect.get_midi_in_devid_by_uid(
-                    uid, zynthian_gui_config.midi_usb_by_port)
+                #logging.debug(f"MCSTATE {uid} => {state}")
+                zmip = zynautoconnect.get_midi_in_devid_by_uid(uid, zynthian_gui_config.midi_usb_by_port)
                 if zmip is None:
                     continue
                 try:
-                    lib_zyncore.zmip_set_flag_active_chain(
-                        zmip, bool(state["zmip_input_mode"]))
+                    lib_zyncore.zmip_set_flag_active_chain(zmip, bool(state["zmip_input_mode"]))
                 except:
                     pass
                 try:
@@ -1950,10 +1932,8 @@ class zynthian_state_manager:
                     pass
                 zynautoconnect.update_midi_in_dev_mode(zmip)
                 try:
-                    if state["disable_ctrldev"]:
-                        self.ctrldev_manager.unload_driver(zmip, True)
-                    else:
-                        self.ctrldev_manager.load_driver(zmip, True)
+                    self.ctrldev_manager.set_disabled_driver(uid, state["disable_ctrldev"])
+                    self.ctrldev_manager.load_driver(zmip)
                 except:
                     pass
                 try:
@@ -1964,8 +1944,7 @@ class zynthian_state_manager:
                 try:
                     routed_chains = state["routed_chains"]
                     for ch in range(0, 16):
-                        lib_zyncore.zmop_set_route_from(
-                            ch, zmip, ch in routed_chains)
+                        lib_zyncore.zmop_set_route_from(ch, zmip, ch in routed_chains)
                 except:
                     pass
 
@@ -1977,8 +1956,7 @@ class zynthian_state_manager:
                                 chan_cc = int(chan_cc)
                                 chan = (chan_cc >> 8) & 0x7f
                                 cc = chan_cc & 0x7f
-                                self.chain_manager.add_midi_learn(
-                                    chan, cc, processor.controllers_dict[symbol], zmip)
+                                self.chain_manager.add_midi_learn(chan, cc, processor.controllers_dict[symbol], zmip)
 
             self.ctrldev_manager.set_state_drivers(ctrldev_state_drivers)
 

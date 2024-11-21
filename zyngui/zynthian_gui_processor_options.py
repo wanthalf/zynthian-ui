@@ -27,15 +27,13 @@ import logging
 
 # Zynthian specific modules
 from zyngui.zynthian_gui_selector import zynthian_gui_selector
-from zyngui.zynthian_gui_save_preset import zynthian_gui_save_preset
-import zynautoconnect
 
 # ------------------------------------------------------------------------------
 # Zynthian processor Options GUI Class
 # ------------------------------------------------------------------------------
 
 
-class zynthian_gui_processor_options(zynthian_gui_selector, zynthian_gui_save_preset):
+class zynthian_gui_processor_options(zynthian_gui_selector):
 
     def __init__(self):
         self.reset()
@@ -69,13 +67,7 @@ class zynthian_gui_processor_options(zynthian_gui_selector, zynthian_gui_save_pr
             self.list_data.append((self.processor_remove, None, "Remove"))
 
         if len(self.processor.get_bank_list()) > 1 or len(self.processor.preset_list) > 0 and self.processor.preset_list[0][0] != '':
-            self.list_data.append((self.preset_list, None, "Preset List"))
-
-        if hasattr(self.processor.engine, "save_preset"):
-            self.list_data.append((self.save_preset, None, "Save Preset"))
-
-        if self.processor.eng_code.startswith("JV/"):
-            self.list_data.append((self.scan_presets, None, "Scan for new presets"))
+            self.list_data.append((self.preset_list, None, "Presets"))
 
         self.list_data.append((self.midi_clean, None, "Clean MIDI-learn"))
 
@@ -112,8 +104,7 @@ class zynthian_gui_processor_options(zynthian_gui_selector, zynthian_gui_save_pr
         self.zyngui.screens["engine"].show_details(self.processor.eng_code)
 
     def processor_remove(self):
-        self.zyngui.show_confirm("Do you want to remove {} from chain?".format(
-            self.processor.engine.name), self.do_remove)
+        self.zyngui.show_confirm(f"Do you want to remove {self.processor.engine.name} from chain?", self.do_remove)
 
     def do_remove(self, unused=None):
         self.zyngui.chain_manager.remove_processor(
@@ -123,22 +114,14 @@ class zynthian_gui_processor_options(zynthian_gui_selector, zynthian_gui_save_pr
         self.processor = None
         self.zyngui.close_screen()
 
-    # Preset management
-
     def preset_list(self):
-        self.zyngui.cuia_bank_preset(self.processor)
-
-    def save_preset(self):
-        super().save_preset()
-
-    def scan_presets(self):
-        self.zyngui.chain_manager.reload_engine_preset_info(self.processor.eng_code)
         self.zyngui.cuia_bank_preset(self.processor)
 
     def midi_clean(self):
         if self.processor:
             self.zyngui.show_confirm(
-                f"Do you want to clean MIDI-learn for ALL controls in {self.processor.name} on MIDI channel {self.processor.midi_chan + 1}?", self.zyngui.chain_manager.clean_midi_learn, self.processor)
+                f"Do you want to clean MIDI-learn for ALL controls in {self.processor.name} on MIDI channel {self.processor.midi_chan + 1}?",
+                self.zyngui.chain_manager.clean_midi_learn, self.processor)
 
     # FX-Chain management
 
@@ -151,7 +134,7 @@ class zynthian_gui_processor_options(zynthian_gui_selector, zynthian_gui_save_pr
             if self.processor.type == "Audio Effect" and slot >= self.chain.fader_pos:
                 return True
             return len(slots[0]) > 1
-        return (slot is not None and slot > 0)
+        return slot is not None and slot > 0
 
     def move_upchain(self):
         self.zyngui.chain_manager.nudge_processor(
@@ -167,7 +150,7 @@ class zynthian_gui_processor_options(zynthian_gui_selector, zynthian_gui_save_pr
             if self.processor.type == "Audio Effect" and slot < self.chain.fader_pos:
                 return True
             return len(slots[0]) > 1
-        return (slot is not None and slot + 1 < self.chain.get_slot_count(self.processor.type))
+        return slot is not None and slot + 1 < self.chain.get_slot_count(self.processor.type)
 
     def move_downchain(self):
         self.zyngui.chain_manager.nudge_processor(

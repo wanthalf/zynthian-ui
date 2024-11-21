@@ -77,23 +77,19 @@ class zynthian_gui_audio_out(zynthian_gui_selector):
                         prefix = "∞ "
                     else:
                         prefix = ""
-                    port_names.append(
-                        (f"{prefix}{chain.get_name()}", chain_id))
+                    port_names.append((f"{prefix}{chain.get_name()}", chain_id))
                 # Add side-chain targets
                 for processor in chain.get_processors():
                     try:
                         for port_name in zynautoconnect.get_sidechain_portnames(processor.jackname):
-                            port_names.append(
-                                (f"↣ side {port_name}", port_name))
+                            port_names.append((f"↣ side {port_name}", port_name))
                     except:
                         pass
             for title, processor in port_names:
                 if processor in self.chain.audio_out:
-                    self.list_data.append(
-                        (processor, processor, "\u2612 " + title))
+                    self.list_data.append((processor, processor, "\u2612 " + title))
                 else:
-                    self.list_data.append(
-                        (processor, processor, "\u2610 " + title))
+                    self.list_data.append((processor, processor, "\u2610 " + title))
 
         if self.chain.is_audio():
             port_names = []
@@ -104,33 +100,26 @@ class zynthian_gui_audio_out(zynthian_gui_selector):
             for i in range(1, port_count + 1, 2):
                 if i < port_count:
                     port_names.append((f"Output {i}", f"system:playback_{i}$"))
-                    port_names.append(
-                        (f"Output {i + 1}", f"system:playback_{i + 1}$"))
-                    port_names.append(
-                        (f"Outputs {i}+{i + 1}", f"system:playback_[{i},{i + 1}]$"))
+                    port_names.append((f"Output {i + 1}", f"system:playback_{i + 1}$"))
+                    port_names.append((f"Outputs {i}+{i + 1}", f"system:playback_[{i},{i + 1}]$"))
                 else:
                     port_names.append((f"Output {i}", f"system:playback_{i}$"))
             for title, processor in port_names:
                 if processor in self.chain.audio_out:
-                    self.list_data.append(
-                        (processor, processor, "\u2612 " + title))
+                    self.list_data.append((processor, processor, "\u2612 " + title))
                 else:
-                    self.list_data.append(
-                        (processor, processor, "\u2610 " + title))
+                    self.list_data.append((processor, processor, "\u2610 " + title))
 
         self.list_data.append((None, None, "> Audio Recorder"))
-        armed = self.zyngui.state_manager.audio_recorder.is_armed(
-            self.chain.mixer_chan)
+        armed = self.zyngui.state_manager.audio_recorder.is_armed(self.chain.mixer_chan)
         if self.zyngui.state_manager.audio_recorder.status:
             locked = None
         else:
             locked = "record"
         if armed:
-            self.list_data.append(
-                (locked, 'record_disable', '\u2612 Record chain'))
+            self.list_data.append((locked, 'record_disable', '\u2612 Record chain'))
         else:
-            self.list_data.append(
-                (locked, 'record_enable', '\u2610 Record chain'))
+            self.list_data.append((locked, 'record_enable', '\u2610 Record chain'))
 
         super().fill_list()
 
@@ -139,8 +128,7 @@ class zynthian_gui_audio_out(zynthian_gui_selector):
 
     def select_action(self, i, t='S'):
         if self.list_data[i][0] == 'record':
-            self.zyngui.state_manager.audio_recorder.toggle_arm(
-                self.chain.mixer_chan)
+            self.zyngui.state_manager.audio_recorder.toggle_arm(self.chain.mixer_chan)
         else:
             self.chain.toggle_audio_out(self.list_data[i][0])
         self.fill_list()
