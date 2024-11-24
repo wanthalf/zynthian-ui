@@ -2772,7 +2772,7 @@ class zynthian_state_manager:
         self.checking_for_updates = True
 
         def update_thread():
-            update_available = False
+            logging.debug("************ CHECKING FOR UPDATES ... ************")
             try:
                 repos = ["zynthian-ui", "zynthian-sys", "zynthian-webconf", "zynthian-data", "zyncoder"]
                 # If attached to last stable => Detect if new tag relase available
@@ -2800,7 +2800,8 @@ class zynthian_state_manager:
                         local_hash = check_output(["git", "-C", path, "rev-parse", "HEAD"], encoding="utf-8",
                                                   stderr=STDOUT).strip()
                         remote_hash = check_output(["git", "-C", path, "ls-remote", "origin", branch], encoding="utf-8",
-                                                   stderr=STDOUT).strip().split('\t')[0]
+                                                   stderr=STDOUT).strip().split("\t")[0]
+                        #logging.debug(f"*********** BRANCH {branch} => local hash {local_hash}, remote hash {remote_hash} ****************")
                         if local_hash != remote_hash:
                             self.update_available = True
                             break
@@ -2809,12 +2810,13 @@ class zynthian_state_manager:
             self.checking_for_updates = False
 
         def get_repo_branch(path):
-            res = check_output(["git", "-C", path, "rev-parse", "--abbrev-ref", "HEAD"], encoding="utf-8",
-                               stderr=STDOUT).strip().split('/')
-            try:
-                return res[1]
-            except:
-                return res[0]
+            res = check_output(["git", "-C", path, "rev-parse", "--abbrev-ref", "HEAD"],
+                               encoding="utf-8", stderr=STDOUT).strip()
+            parts = res.split("/", 1)
+            if len(parts) > 1 and parts[0] == 'heads':
+                return parts[1]
+            else:
+                return res
 
         thread = Thread(target=update_thread, args=())
         thread.name = "Check update"

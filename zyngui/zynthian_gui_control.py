@@ -51,18 +51,20 @@ class zynthian_gui_control(zynthian_gui_selector):
     def __init__(self, selcap='Controllers'):
         self.mode = None
 
-        self.screen_info = None
-        self.screen_title = None
-        self.screen_type = None
-        self.screen_processor = None  # TODO: Refactor
-
         self.widgets = {}
         self.current_widget = None
+
+        self.processors = []
         self.ctrl_screens = {}
         self.zcontrollers = []
-        self.screen_name = None
         self.zgui_controllers = []
         self.midi_learning = MIDI_LEARNING_DISABLED
+
+        self.screen_info = None
+        self.screen_name = None
+        self.screen_type = None
+        self.screen_title = None
+        self.screen_processor = None  # TODO: Refactor
 
         self.buttonbar_config = [
             ("arrow_left", '<< Prev'),
@@ -89,34 +91,32 @@ class zynthian_gui_control(zynthian_gui_selector):
                 pos[1], minsize=minwidth, weight=self.sidebar_shown)
 
     def build_view(self):
+        curproc = self.zyngui.get_current_processor()
+        if not self.processors or curproc not in self.processors:
+            pending_click_listbox = True
+        else:
+            pending_click_listbox = False
         super().build_view()
         if not self.shown:
-            zynsigman.register(
-                zynsigman.S_MIDI, zynsigman.SS_MIDI_CC, self.cb_midi_cc)
-            zynsigman.register(
-                zynsigman.S_MIDI, zynsigman.SS_MIDI_PC, self.cb_midi_pc)
+            zynsigman.register(zynsigman.S_MIDI, zynsigman.SS_MIDI_CC, self.cb_midi_cc)
+            zynsigman.register(zynsigman.S_MIDI, zynsigman.SS_MIDI_PC, self.cb_midi_pc)
             if zynthian_gui_config.enable_touch_navigation:
-                zynsigman.register(
-                    zynsigman.S_GUI, zynsigman.SS_GUI_SHOW_SIDEBAR, self.cb_show_sidebar)
-                zynsigman.register(
-                    zynsigman.S_GUI, self.SS_GUI_CONTROL_MODE, self.cb_control_mode)
+                zynsigman.register(zynsigman.S_GUI, zynsigman.SS_GUI_SHOW_SIDEBAR, self.cb_show_sidebar)
+                zynsigman.register(zynsigman.S_GUI, self.SS_GUI_CONTROL_MODE, self.cb_control_mode)
+            self.click_listbox()
+        elif pending_click_listbox:
             self.click_listbox()
         return True
 
     def hide(self):
         if self.shown:
             self.exit_midi_learn()
-            zynsigman.unregister(
-                zynsigman.S_MIDI, zynsigman.SS_MIDI_CC, self.cb_midi_cc)
-            zynsigman.unregister(
-                zynsigman.S_MIDI, zynsigman.SS_MIDI_PC, self.cb_midi_pc)
+            zynsigman.unregister(zynsigman.S_MIDI, zynsigman.SS_MIDI_CC, self.cb_midi_cc)
+            zynsigman.unregister(zynsigman.S_MIDI, zynsigman.SS_MIDI_PC, self.cb_midi_pc)
             if zynthian_gui_config.enable_touch_navigation:
-                zynsigman.unregister(
-                    zynsigman.S_GUI, zynsigman.SS_GUI_SHOW_SIDEBAR, self.cb_show_sidebar)
-                zynsigman.unregister(
-                    zynsigman.S_GUI, self.SS_GUI_CONTROL_MODE, self.cb_control_mode)
+                zynsigman.unregister(zynsigman.S_GUI, zynsigman.SS_GUI_SHOW_SIDEBAR, self.cb_show_sidebar)
+                zynsigman.unregister(zynsigman.S_GUI, self.SS_GUI_CONTROL_MODE, self.cb_control_mode)
         super().hide()
-
 
     def cb_midi_pc(self, izmip, chan, num):
         """Handle MIDI_PC signal
@@ -148,35 +148,42 @@ class zynthian_gui_control(zynthian_gui_selector):
     def cb_control_mode(self, mode):
         self.set_button_status(2, (mode == "select"))
 
+    def configure_processors(self, curproc=None):
+        if not curproc:
+            curproc = self.zyngui.get_current_processor()
+        if not curproc:
+            self.processors = []
+        else:
+            if curproc in (self.zyngui.state_manager.alsa_mixer_processor, self.zyngui.state_manager.audio_player):
+                self.processors = [curproc]
+            else:
+                self.processors = self.zyngui.chain_manager.get_processors(curproc.chain_id)
+
     def fill_list(self):
         self.list_data = []
 
+        # Configure processors if needed
         curproc = self.zyngui.get_current_processor()
-        if not curproc:
-            self.processors = []
+        self.configure_processors(curproc)
+
+        if not self.processors:
             self.list_data.append((None, None, "NO PROCESSORS!"))
-        elif curproc in (self.zyngui.state_manager.alsa_mixer_processor, self.zyngui.state_manager.audio_player):
-            self.processors = [curproc]
         else:
-            self.processors = self.zyngui.chain_manager.get_processors(
-                curproc.chain_id)
-
-        i = 0
-        for processor in self.processors:
-            j = 0
-            screen_list = processor.get_ctrl_screens()
-            # if len(self.processors) > 1:
-            self.list_data.append(
-                (None, None, f"> {processor.engine.name.split('/')[-1]}"))
-            for cscr in screen_list:
+            i = 0
+            for processor in self.processors:
+                j = 0
+                screen_list = processor.get_ctrl_screens()
+                # if len(self.processors) > 1:
                 self.list_data.append(
-                    (screen_list[cscr][0].group_symbol, i, cscr, processor, j))
-                i += 1
-                j += 1
+                    (None, None, f"> {processor.engine.name.split('/')[-1]}"))
+                for cscr in screen_list:
+                    self.list_data.append(
+                        (screen_list[cscr][0].group_symbol, i, cscr, processor, j))
+                    i += 1
+                    j += 1
 
-            self.index = curproc.get_current_screen_index()
-            self.get_screen_info()
-
+                self.index = curproc.get_current_screen_index()
+                self.get_screen_info()
         super().fill_list()
 
     def get_screen_info(self):
@@ -309,16 +316,14 @@ class zynthian_gui_control(zynthian_gui_selector):
         # Get screen info
         if self.get_screen_info():
             try:
-                self.zyngui.chain_manager.get_active_chain(
-                ).set_current_processor(self.screen_processor)
+                self.zyngui.chain_manager.get_active_chain().set_current_processor(self.screen_processor)
                 self.zyngui.current_processor = self.screen_processor
             except:
                 pass
 
             # Get controllers for the current screen
             self.zyngui.get_current_processor().set_current_screen_index(self.index)
-            self.zcontrollers = self.screen_processor.get_ctrl_screen(
-                self.screen_title)
+            self.zcontrollers = self.screen_processor.get_ctrl_screen(self.screen_title)
 
             # Show the widget for the current processor
             if self.mode == 'control':
@@ -341,8 +346,7 @@ class zynthian_gui_control(zynthian_gui_selector):
                     # logging.debug(f"CONTROLLER ARRAY {i} => {ctrl.symbol} ({ctrl.short_name})")
                     self.set_zcontroller(i, ctrl)
                 except Exception as e:
-                    logging.exception("Controller %s (%d) => %s" %
-                                      (ctrl.short_name, i, e))
+                    logging.exception("Controller %s (%d) => %s" %(ctrl.short_name, i, e))
                     self.zgui_controllers[i].hide()
             else:
                 self.set_zcontroller(i, None)
@@ -357,8 +361,7 @@ class zynthian_gui_control(zynthian_gui_selector):
             self.zgui_controllers[i].config(ctrl)
             self.zgui_controllers[i].show()
         else:
-            self.zgui_controllers.append(
-                zynthian_gui_controller(i, self.main_frame, ctrl))
+            self.zgui_controllers.append(zynthian_gui_controller(i, self.main_frame, ctrl))
 
     def get_zcontroller(self, i):
         if i < len(self.zgui_controllers):
@@ -368,8 +371,7 @@ class zynthian_gui_control(zynthian_gui_selector):
 
     def set_selector_screen(self):
         for i in range(0, len(self.zgui_controllers)):
-            self.zgui_controllers[i].set_hl(
-                zynthian_gui_config.color_ctrl_bg_off)
+            self.zgui_controllers[i].set_hl(zynthian_gui_config.color_ctrl_bg_off)
         self.set_selector()
 
     def set_mode_select(self):
@@ -382,8 +384,7 @@ class zynthian_gui_control(zynthian_gui_selector):
                             fg=zynthian_gui_config.color_ctrl_tx_off)
         self.select(self.index)
         self.set_select_path()
-        zynsigman.send_queued(
-            zynsigman.S_GUI, self.SS_GUI_CONTROL_MODE, mode=self.mode)
+        zynsigman.send_queued(zynsigman.S_GUI, self.SS_GUI_CONTROL_MODE, mode=self.mode)
 
     def set_mode_control(self):
         self.mode = 'control'
@@ -396,8 +397,7 @@ class zynthian_gui_control(zynthian_gui_selector):
         for i in range(0, len(self.zgui_controllers)):
             self.zgui_controllers[i].unset_hl()
         self.set_select_path()
-        zynsigman.send_queued(
-            zynsigman.S_GUI, self.SS_GUI_CONTROL_MODE, mode=self.mode)
+        zynsigman.send_queued(zynsigman.S_GUI, self.SS_GUI_CONTROL_MODE, mode=self.mode)
 
     def previous_page(self, wrap=False):
         i = self.index - 1
@@ -705,15 +705,13 @@ class zynthian_gui_control(zynthian_gui_selector):
             params = self.zyngui.chain_manager.get_midi_learn_from_zctrl(zctrl)
             if params:
                 if params[1]:
-                    dev_name = zynautoconnect.get_midi_in_devid(
-                        params[0] >> 24)
+                    dev_name = zynautoconnect.get_midi_in_devid(params[0] >> 24)
                     options[f"Unlearn '{zctrl.name}' from {dev_name}"] = zctrl
                 else:
                     options[f"Unlearn '{zctrl.name}'"] = zctrl
             options["Unlearn all controls"] = ""
 
-            self.zyngui.screens['option'].config(
-                title, options, self.midi_learn_options_cb)
+            self.zyngui.screens['option'].config(title, options, self.midi_learn_options_cb)
             self.zyngui.show_screen('option')
         except Exception as e:
             logging.error(f"Can't show control options => {e}")

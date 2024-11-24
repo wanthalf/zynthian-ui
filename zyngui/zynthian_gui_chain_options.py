@@ -270,12 +270,11 @@ class zynthian_gui_chain_options(zynthian_gui_selector):
         self.zyngui.show_screen("processor_options")
 
     def chain_midi_chan(self):
-        if self.chain.get_type() == "MIDI Tool":
-            chan_all = True
-        else:
-            chan_all = False
-        self.zyngui.screens['midi_chan'].set_mode(
-            "SET", self.chain.midi_chan, chan_all=chan_all)
+        #if self.chain.get_type() == "MIDI Tool":
+        #    chan_all = True
+        #else:
+        #    chan_all = False
+        self.zyngui.screens['midi_chan'].set_mode("SET", self.chain.midi_chan, chan_all=True)
         self.zyngui.show_screen('midi_chan')
 
     def chain_midi_cc(self):

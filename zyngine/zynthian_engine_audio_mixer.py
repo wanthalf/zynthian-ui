@@ -258,7 +258,7 @@ class zynmixer(zynthian_engine):
     # Function to get mute for a channel
     # channel: Index of channel
     # returns: Mute state (True if muted)
-    def get_mute(self, channel, update=False):
+    def get_mute(self, channel):
         if channel is None:
             return
         if channel >= self.MAX_NUM_CHANNELS:

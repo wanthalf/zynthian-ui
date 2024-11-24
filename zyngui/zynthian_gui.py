@@ -947,13 +947,12 @@ class zynthian_gui:
                 else:
                     # Select MIDI channel
                     logging.debug(self.modify_chain_status)
-                    if self.modify_chain_status["type"] == "MIDI Tool":
+                    #if self.modify_chain_status["type"] == "MIDI Tool":
                         # Enable "ALl Channels" option for MIDI chains
-                        chan_all = True
-                    else:
-                        chan_all = False
-                    self.screens["midi_chan"].set_mode(
-                        "ADD", chan_all=chan_all)
+                    #    chan_all = True
+                    #else:
+                    #    chan_all = False
+                    self.screens["midi_chan"].set_mode("ADD", chan_all=True)
                     self.show_screen("midi_chan")
 
         elif "type" in self.modify_chain_status:
