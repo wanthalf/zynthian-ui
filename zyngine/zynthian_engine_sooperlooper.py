@@ -323,13 +323,20 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 
 		self.osc_target_port = self.SL_PORT
 
-		self.command = ["sooperlooper", "-q", "-l 0", "-D no", f"-p {self.osc_target_port}", f"-j{self.jackname}"]
-
 		# Load custom MIDI bindings
 		custom_slb_fpath = self.config_dir + "/sooperlooper/zynthian.slb"
 		if os.path.exists(custom_slb_fpath):
-			self.command += [f"-m {custom_slb_fpath}"]
 			logging.info(f"loading sooperlooper custom MIDI bindings: {custom_slb_fpath}")
+		else:
+			custom_slb_fpath = None
+
+		# Build SL command line
+		if self.config_remote_display():
+			self.command = ["slgui", "-l 0", f"-P {self.osc_target_port}", f"-J {self.jackname}"]
+		else:
+			self.command = ["sooperlooper", "-q", "-l 0", "-D no", f"-p {self.osc_target_port}", f"-j {self.jackname}"]
+		if custom_slb_fpath:
+			self.command += ["-m", custom_slb_fpath]
 
 		self.state = [-1] * self.MAX_LOOPS  # Current SL state for each loop
 		self.next_state = [-1] * self.MAX_LOOPS  # Next SL state for each loop (-1 if no state change pending)
@@ -413,9 +420,9 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 	# ---------------------------------------------------------------------------
 
 	def start(self):
-		#logging.warning("Starting SooperLooper")
+		logging.debug(f"Starting SooperLooper with command: {self.command}")
 		self.osc_init()
-		self.proc = Popen(self.command, stdout=DEVNULL, stderr=DEVNULL)
+		self.proc = Popen(self.command, stdout=DEVNULL, stderr=DEVNULL, env=self.command_env, cwd=self.command_cwd)
 		sleep(1)  # TODO: Cludgy wait - maybe should perform periodic check for server until reachable
 
 		# Register for common events from sooperlooper server - request changes to the currently selected loop
